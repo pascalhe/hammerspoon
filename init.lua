@@ -21,6 +21,16 @@ end
 ---------------------------------------------------------------------------------------------------
 local doCheck=true
 local isCheckRunning=false
+local doShowInfo=false
+local lookuptable = {
+    [hs.application.watcher.activated] = "activated",
+    [hs.application.watcher.deactivated] = "deactivated",
+    [hs.application.watcher.hidden] = "hidden",
+    [hs.application.watcher.launched] = "launched",
+    [hs.application.watcher.launching] = "launching",
+    [hs.application.watcher.terminated] = "terminated",
+    [hs.application.watcher.unhidden] = "unhidden"
+  }
 
 ---------------------------------------------------------------------------------------------------
 -- RUN FUNCTION ON GIVEN APPS
@@ -37,8 +47,8 @@ local function onRunningApps(app, eventType, apps, fn)
         return
     end
     local runningApps={}
-    for i, a in ipairs(apps) do
-        local runningApp = hs.application.get(a)
+    for i, a in ipairs(apps) do  
+        local runningApp = hs.application.find(a)
         if runningApp then
             table.insert(runningApps, runningApp)
         end
@@ -137,7 +147,7 @@ local function closeApps(mainApp, apps)
 end
 
 ---------------------------------------------------------------------------------------------------
--- SHOWS WARNING APPS ARE RUNNING
+-- SHOWS WARNING: APPS ARE RUNNING
 ---------------------------------------------------------------------------------------------------
 local function showWarning(mainApp, apps)
     if #apps == 0 then
@@ -155,17 +165,23 @@ end
 -- APPLICATION WATCHER
 ---------------------------------------------------------------------------------------------------
 local function applicationWatcher(appName, eventType, app)
+    if doShowInfo then
+        hs.alert.show("appName: ".. appName.. "\neventType: ".. lookuptable[eventType] .. "\nbundleID: ".. app:bundleID())
+        print("\nappName: ", appName, "\neventType: ", lookuptable[eventType], "\nbundleID: ", app:bundleID())
+    end
+    -- com.citrix.receiver.nomas
+    -- com.citrix.receiver.icaviewer.mac
     if      appName == "Citrix Viewer" then
-        onRunningApps(app, eventType, {"ProtonVPN","StrongVPN"}, closeApps)
+        onRunningApps(app, eventType, {"ch.protonvpn.mac","com.strongvpn.StrongVPN2-Client"}, closeApps)
     elseif  appName == "Citrix Workspace" then
-        onRunningApps(app, eventType, {"ProtonVPN","StrongVPN"}, closeApps)
+        onRunningApps(app, eventType, {"ch.protonvpn.mac","com.strongvpn.StrongVPN2-Client"}, closeApps)
     elseif  appName == "StrongVPN" then
-        onRunningApps(app, eventType, {"Citrix Viewer"}, showWarning)
+        onRunningApps(app, eventType, {"com.citrix.receiver.icaviewer.mac"}, showWarning)
     elseif  appName == "ProtonVPN" then
-        onRunningApps(app, eventType, {"Citrix Viewer"}, showWarning)
+        onRunningApps(app, eventType, {"com.citrix.receiver.icaviewer.mac"}, showWarning)
     end
 end
-local appWatcher = hs.application.watcher.new(applicationWatcher):start()
+_G.appWatcher = hs.application.watcher.new(applicationWatcher):start()
 
 ---------------------------------------------------------------------------------------------------
 -- RELOAD CONFIG
@@ -181,5 +197,24 @@ local function reloadConfig(files)
         hs.reload()
     end
 end
-local myWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", reloadConfig):start()
+_G.configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", reloadConfig):start()
+
+---------------------------------------------------------------------------------------------------
+-- KEY BINDING
+---------------------------------------------------------------------------------------------------
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "w", function()
+    hs.alert.show(
+        "doCheck: " .. tostring(doCheck) ..
+        "\nisCheckRunning: ".. tostring(isCheckRunning) ..
+        "\ndoShowInfo: ".. tostring(doShowInfo)
+    )
+end)
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "l", function ()
+    doShowInfo = not doShowInfo
+    hs.alert.show("doShowInfo: ".. tostring(doShowInfo))
+end)
+
+---------------------------------------------------------------------------------------------------
+-- CONFIG LOADED
+---------------------------------------------------------------------------------------------------
 hs.alert.show("Config loaded")
